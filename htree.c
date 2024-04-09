@@ -100,17 +100,17 @@ tree(void *arg)
         pthread_create(&rightThread, NULL, tree, &rightArgs);
         pthread_join(leftThread, &leftHashPtr);
         pthread_join(rightThread, &rightHashPtr);
-        sprintf(concatBuffer, "%d%d%d", hash, *((u32*)leftHashPtr), *((u32*)rightHashPtr));
+        sprintf((char*)concatBuffer, "%d%d%d", hash, *((u32*)leftHashPtr), *((u32*)rightHashPtr));
         free(leftHashPtr);
         free(rightHashPtr);
-        *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen(concatBuffer));
+        *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
     } else if (leftNum < args->numThreads) {
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_join(leftThread, &leftHashPtr);
-        sprintf(concatBuffer, "%d%d", hash, *((u32*)leftHashPtr));
+        sprintf((char*)concatBuffer, "%d%d", hash, *((u32*)leftHashPtr));
         free(leftHashPtr);
-        *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen(concatBuffer));
+        *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
     } else {
         *resultHashPtr = hash;
