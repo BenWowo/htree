@@ -15,7 +15,7 @@
 #define false 0
 typedef uint8_t bool;
 
-typedef uint8_t u8; 
+typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
@@ -33,7 +33,7 @@ struct ThreadArgs {
 };
 typedef struct ThreadArgs ThreadArgs;
 
-u32 jenkins_one_at_a_time_hash(const u8 *key, size_t length);
+u32 jenkins_one_at_a_time_hash(const u8* key, size_t length);
 void *tree(void *arg);
 
 size_t getFileSize(int fd);
@@ -91,7 +91,7 @@ tree(void *arg)
     // check to make sure that offset is correct
     ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, args->offset * 2, args->len};
     ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, args->offset * 3, args->len};
-    char concatBuffer[BUFFERSIZE];
+    u8 concatBuffer[BUFFERSIZE];
 
     // 3 conditions...
     // 1) both left and right exist
@@ -102,17 +102,17 @@ tree(void *arg)
         pthread_create(&rightThread, NULL, tree, &rightArgs);
         pthread_join(leftThread, &leftHashPtr);
         pthread_join(rightThread, &rightHashPtr);
-        sprintf(concatBuffer, "%u%u%u", hash, *((u32*)leftHashPtr), *((u32*)rightHashPtr));
+        sprintf((char*)concatBuffer, "%u%u%u", hash, *((u32*)leftHashPtr), *((u32*)rightHashPtr));
         free(leftHashPtr);
         free(rightHashPtr);
-        *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen(concatBuffer));
+        *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
     } else if (leftNum < args->numThreads) {
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_join(leftThread, &leftHashPtr);
-        sprintf(concatBuffer, "%u%u", hash, *((u32*)leftHashPtr));
+        sprintf((char*)concatBuffer, "%u%u", hash, *((u32*)leftHashPtr));
         free(leftHashPtr);
-        *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen(concatBuffer));
+        *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
     } else {
         *resultHashPtr = hash;
@@ -137,7 +137,7 @@ jenkins_one_at_a_time_hash(const u8 *key, size_t length)
 }
 
 size_t
-getFileSize(int fd) 
+getFileSize(int fd)
 {
     struct stat file_stat;
     fstat(fd, &file_stat);
