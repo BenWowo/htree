@@ -42,7 +42,9 @@ int make_open(char* filename, int permissions, char* msg);
 void exit_err(char* msg);
 bool isInteger(char* number);
 
-int main(int argc, char* argv[]) {
+int
+main(int argc, char* argv[])
+{
     validateUsage(argc, argv);
     char* filename = argv[1];
     int fd = make_open(filename, O_RDWR, "failed to open file");
@@ -60,7 +62,7 @@ int main(int argc, char* argv[]) {
     void *resultHashPtr;
     pthread_create(&rootThread, NULL, tree, (void*)&args);
     pthread_join(rootThread, &resultHashPtr);
-    printf("This is the file hash: %d\n", *((u32*)resultHashPtr));
+    printf("This is the file hash: %u\n", *((u32*)resultHashPtr));
     close(fd);
     free(resultHashPtr);
     printf("Thank you for using multithreaded hash tree!\n");
@@ -100,7 +102,7 @@ tree(void *arg)
         pthread_create(&rightThread, NULL, tree, &rightArgs);
         pthread_join(leftThread, &leftHashPtr);
         pthread_join(rightThread, &rightHashPtr);
-        sprintf((char*)concatBuffer, "%d%d%d", hash, *((u32*)leftHashPtr), *((u32*)rightHashPtr));
+        sprintf((char*)concatBuffer, "%u%u%u", hash, *((u32*)leftHashPtr), *((u32*)rightHashPtr));
         free(leftHashPtr);
         free(rightHashPtr);
         *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
@@ -108,7 +110,7 @@ tree(void *arg)
     } else if (leftNum < args->numThreads) {
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_join(leftThread, &leftHashPtr);
-        sprintf((char*)concatBuffer, "%d%d", hash, *((u32*)leftHashPtr));
+        sprintf((char*)concatBuffer, "%u%u", hash, *((u32*)leftHashPtr));
         free(leftHashPtr);
         *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
