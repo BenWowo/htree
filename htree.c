@@ -49,20 +49,23 @@ main(int argc, char* argv[])
     char* filename = argv[1];
     int fd = make_open(filename, O_RDWR, "failed to open file");
     size_t fileSize = getFileSize(fd);
-    u32 numBlocks = ((fileSize + BSIZE - 1) / BSIZE);
+    u32 numBlocks = fileSize / BSIZE;
+    u32 numThreads = atoi(argv[2]);
+    printf("File size: %ld\n", fileSize);
+    printf("Blocks per thread: %d\n", numBlocks/numThreads);
 
     ThreadArgs args;
     args.num = 0;
-    args.numThreads = atoi(argv[2]);
+    args.numThreads = numThreads;
     args.fd = fd;
     args.offset = 0;
-    args.len = numBlocks * BSIZE;
+    args.len = numBlocks * BSIZE / numThreads;
 
     pthread_t rootThread;
     void *resultHashPtr;
     pthread_create(&rootThread, NULL, tree, (void*)&args);
     pthread_join(rootThread, &resultHashPtr);
-    printf("This is the file hash: %u\n", *((u32*)resultHashPtr));
+    printf("File hash: %u\n", *((u32*)resultHashPtr));
     close(fd);
     free(resultHashPtr);
     printf("Thank you for using multithreaded hash tree!\n");
@@ -89,8 +92,9 @@ tree(void *arg)
     pthread_t leftThread, rightThread;
     void *leftHashPtr, *rightHashPtr;
     // check to make sure that offset is correct
-    ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, args->offset * 2, args->len};
-    ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, args->offset * 3, args->len};
+    // I think the values I'm using for the offset is wrong :(
+    ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, leftNum*args->len, args->len};
+    ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, rightNum*args->len, args->len};
     u8 concatBuffer[BUFFERSIZE];
 
     // 3 conditions...
