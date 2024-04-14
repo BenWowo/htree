@@ -26,8 +26,8 @@ typedef int32_t i32;
 typedef int64_t i64;
 
 struct ThreadArgs {
-    u32 num;
-    u32 numThreads;
+    u64 num;
+    u64 numThreads;
     int fd;
     off_t offset;
     size_t len;
@@ -50,10 +50,10 @@ main(int argc, char* argv[])
     char* filename = argv[1];
     int fd = make_open(filename, O_RDWR, "failed to open file");
     size_t fileSize = getFileSize(fd);
-    u32 numBlocks = fileSize / BSIZE;
-    u32 numThreads = atoi(argv[2]);
+    u64 numBlocks = fileSize / BSIZE;
+    u64 numThreads = atoi(argv[2]);
     printf("File size: %ld\n", fileSize);
-    printf("Blocks per thread: %d\n", numBlocks/numThreads);
+    printf("Blocks per thread: %lu\n", numBlocks/numThreads);
 
     struct timeval start, end;
     gettimeofday(&start, NULL);
@@ -69,7 +69,7 @@ main(int argc, char* argv[])
     void *resultHashPtr;
     pthread_create(&rootThread, NULL, tree, (void*)&args);
     pthread_join(rootThread, &resultHashPtr);
-    
+
     gettimeofday(&end, NULL);
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
     printf("Time taken: %.6f seconds\n", elapsed);
@@ -83,13 +83,6 @@ main(int argc, char* argv[])
     return EXIT_SUCCESS;
 }
 
-// struct ThreadArgs {
-//     u32 num;
-//     u32 numThreads;
-//     int fd;
-//     off_t offset;
-//     size_t len;
-// };
 void *
 tree(void *arg)
 {
@@ -98,20 +91,14 @@ tree(void *arg)
     u32 hash = jenkins_one_at_a_time_hash(consecutiveBlocks, args->len);
     u32 *resultHashPtr = (u32*)malloc(sizeof(u32));
 
-    u32 leftNum = args->num * 2 + 1;
-    u32 rightNum = args->num * 2 + 2;
+    u64 leftNum = args->num * 2 + 1;
+    u64 rightNum = args->num * 2 + 2;
     pthread_t leftThread, rightThread;
     void *leftHashPtr, *rightHashPtr;
-    // check to make sure that offset is correct
-    // I think the values I'm using for the offset is wrong :(
     ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, leftNum*args->len, args->len};
     ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, rightNum*args->len, args->len};
     u8 concatBuffer[BUFFERSIZE];
 
-    // 3 conditions...
-    // 1) both left and right exist
-    // 2) just left exists
-    // 3) neither exist
     if (rightNum < args->numThreads) {
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_create(&rightThread, NULL, tree, &rightArgs);
