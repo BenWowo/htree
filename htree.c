@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 
 #define BSIZE 4096
 #define BUFFERSIZE 8192
@@ -54,6 +55,9 @@ main(int argc, char* argv[])
     printf("File size: %ld\n", fileSize);
     printf("Blocks per thread: %d\n", numBlocks/numThreads);
 
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
     ThreadArgs args;
     args.num = 0;
     args.numThreads = numThreads;
@@ -65,9 +69,16 @@ main(int argc, char* argv[])
     void *resultHashPtr;
     pthread_create(&rootThread, NULL, tree, (void*)&args);
     pthread_join(rootThread, &resultHashPtr);
+    
+    gettimeofday(&end, NULL);
+    double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("Time taken: %.6f seconds\n", elapsed);
+
     printf("File hash: %u\n", *((u32*)resultHashPtr));
     close(fd);
     free(resultHashPtr);
+
+
     printf("Thank you for using multithreaded hash tree!\n");
     return EXIT_SUCCESS;
 }
