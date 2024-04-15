@@ -74,7 +74,7 @@ main(int argc, char* argv[])
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
     printf("Time taken: %.6f seconds\n", elapsed);
 
-    printf("File hash: %u\n", *((u32*)resultHashPtr));
+    printf("File hash: %lu\n", *((u64*)resultHashPtr));
     close(fd);
     free(resultHashPtr);
 
@@ -83,28 +83,41 @@ main(int argc, char* argv[])
     return EXIT_SUCCESS;
 }
 
+// struct ThreadArgs {
+//     u64 num;
+//     u64 numThreads;
+//     int fd;
+//     off_t offset;
+//     size_t len;
+// };
 void *
 tree(void *arg)
 {
     ThreadArgs* args = (ThreadArgs*)arg;
     u8 *consecutiveBlocks = mmap(NULL, args->len, PROT_READ, MAP_PRIVATE, args->fd, args->offset);
-    u32 hash = jenkins_one_at_a_time_hash(consecutiveBlocks, args->len);
-    u32 *resultHashPtr = (u32*)malloc(sizeof(u32));
+    u64 hash = jenkins_one_at_a_time_hash(consecutiveBlocks, args->len);
+    u64 *resultHashPtr = (u64*)malloc(sizeof(u64));
 
     u64 leftNum = args->num * 2 + 1;
     u64 rightNum = args->num * 2 + 2;
     pthread_t leftThread, rightThread;
     void *leftHashPtr, *rightHashPtr;
+    // check to make sure that offset is correct
+    // I think the values I'm using for the offset is wrong :(
     ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, leftNum*args->len, args->len};
     ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, rightNum*args->len, args->len};
     u8 concatBuffer[BUFFERSIZE];
 
+    // 3 conditions...
+    // 1) both left and right exist
+    // 2) just left exists
+    // 3) neither exist
     if (rightNum < args->numThreads) {
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_create(&rightThread, NULL, tree, &rightArgs);
         pthread_join(leftThread, &leftHashPtr);
         pthread_join(rightThread, &rightHashPtr);
-        sprintf((char*)concatBuffer, "%u%u%u", hash, *((u32*)leftHashPtr), *((u32*)rightHashPtr));
+        sprintf((char*)concatBuffer, "%lu%lu%lu", hash, *((u64*)leftHashPtr), *((u64*)rightHashPtr));
         free(leftHashPtr);
         free(rightHashPtr);
         *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
@@ -112,7 +125,7 @@ tree(void *arg)
     } else if (leftNum < args->numThreads) {
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_join(leftThread, &leftHashPtr);
-        sprintf((char*)concatBuffer, "%u%u", hash, *((u32*)leftHashPtr));
+        sprintf((char*)concatBuffer, "%lu%lu", hash, *((u64*)leftHashPtr));
         free(leftHashPtr);
         *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
