@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/time.h>
 
 #define BSIZE 4096
 #define BUFFERSIZE 8192
@@ -25,8 +26,8 @@ typedef int32_t i32;
 typedef int64_t i64;
 
 struct ThreadArgs {
-    u32 num;
-    u32 numThreads;
+    u64 num;
+    u64 numThreads;
     int fd;
     off_t offset;
     size_t len;
@@ -49,10 +50,13 @@ main(int argc, char* argv[])
     char* filename = argv[1];
     int fd = make_open(filename, O_RDWR, "failed to open file");
     size_t fileSize = getFileSize(fd);
-    u32 numBlocks = fileSize / BSIZE;
-    u32 numThreads = atoi(argv[2]);
+    u64 numBlocks = fileSize / BSIZE;
+    u64 numThreads = atoi(argv[2]);
     printf("File size: %ld\n", fileSize);
-    printf("Blocks per thread: %d\n", numBlocks/numThreads);
+    printf("Blocks per thread: %lu\n", numBlocks/numThreads);
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
 
     ThreadArgs args;
     args.num = 0;
@@ -65,16 +69,23 @@ main(int argc, char* argv[])
     void *resultHashPtr;
     pthread_create(&rootThread, NULL, tree, (void*)&args);
     pthread_join(rootThread, &resultHashPtr);
-    printf("File hash: %u\n", *((u32*)resultHashPtr));
+
+    gettimeofday(&end, NULL);
+    double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("Time taken: %.6f seconds\n", elapsed);
+
+    printf("File hash: %lu\n", *((u64*)resultHashPtr));
     close(fd);
     free(resultHashPtr);
+
+
     printf("Thank you for using multithreaded hash tree!\n");
     return EXIT_SUCCESS;
 }
 
 // struct ThreadArgs {
-//     u32 num;
-//     u32 numThreads;
+//     u64 num;
+//     u64 numThreads;
 //     int fd;
 //     off_t offset;
 //     size_t len;
@@ -84,17 +95,15 @@ tree(void *arg)
 {
     ThreadArgs* args = (ThreadArgs*)arg;
     u8 *consecutiveBlocks = mmap(NULL, args->len, PROT_READ, MAP_PRIVATE, args->fd, args->offset);
-    u32 hash = jenkins_one_at_a_time_hash(consecutiveBlocks, args->len);
-    u32 *resultHashPtr = (u32*)malloc(sizeof(u32));
+    u64 hash = jenkins_one_at_a_time_hash(consecutiveBlocks, args->len);
+    u64 *resultHashPtr = (u64*)malloc(sizeof(u64));
 
-    u32 leftNum = args->num * 2 + 1;
-    u32 rightNum = args->num * 2 + 2;
+    u64 leftNum = args->num * 2 + 1;
+    u64 rightNum = args->num * 2 + 2;
     pthread_t leftThread, rightThread;
     void *leftHashPtr, *rightHashPtr;
-    // check to make sure that offset is correct
-    // I think the values I'm using for the offset is wrong :(
-    ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, args->offset + args->len, args->len};
-    ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, args->offset + args->len * 2, args->len};
+    ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, leftNum*args->len, args->len};
+    ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, rightNum*args->len, args->len};
     u8 concatBuffer[BUFFERSIZE];
 
     // 3 conditions...
@@ -106,7 +115,7 @@ tree(void *arg)
         pthread_create(&rightThread, NULL, tree, &rightArgs);
         pthread_join(leftThread, &leftHashPtr);
         pthread_join(rightThread, &rightHashPtr);
-        sprintf((char*)concatBuffer, "%u%u%u", hash, *((u32*)leftHashPtr), *((u32*)rightHashPtr));
+        sprintf((char*)concatBuffer, "%lu%lu%lu", hash, *((u64*)leftHashPtr), *((u64*)rightHashPtr));
         free(leftHashPtr);
         free(rightHashPtr);
         *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
@@ -114,7 +123,7 @@ tree(void *arg)
     } else if (leftNum < args->numThreads) {
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_join(leftThread, &leftHashPtr);
-        sprintf((char*)concatBuffer, "%u%u", hash, *((u32*)leftHashPtr));
+        sprintf((char*)concatBuffer, "%lu%lu", hash, *((u64*)leftHashPtr));
         free(leftHashPtr);
         *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
