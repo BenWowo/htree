@@ -102,8 +102,6 @@ tree(void *arg)
     u64 rightNum = args->num * 2 + 2;
     pthread_t leftThread, rightThread;
     void *leftHashPtr, *rightHashPtr;
-    // check to make sure that offset is correct
-    // I think the values I'm using for the offset is wrong :(
     ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, leftNum*args->len, args->len};
     ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, rightNum*args->len, args->len};
     u8 concatBuffer[BUFFERSIZE];
