@@ -1,3 +1,6 @@
+//Iniyan Joseph IIJ210000
+//Benjamin Wowo BNW200001
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -44,21 +47,22 @@ void exit_err(char* msg);
 bool isInteger(char* number);
 
 int
-main(int argc, char* argv[])
+main(int argc, char* argv[]) //Main method will run the program
 {
-    validateUsage(argc, argv);
-    char* filename = argv[1];
+    validateUsage(argc, argv); // Make sure it is possible to run program
+
+    char* filename = argv[1]; // Open file and get and print information
     int fd = make_open(filename, O_RDWR, "failed to open file");
     size_t fileSize = getFileSize(fd);
-    u64 numBlocks = fileSize / BSIZE;
+    u64 numBlocks = fileSize / BSIZE; // Compute block size
     u64 numThreads = atoi(argv[2]);
     printf("File size: %ld\n", fileSize);
     printf("Blocks per thread: %lu\n", numBlocks/numThreads);
 
-    struct timeval start, end;
+    struct timeval start, end;//Get time for when the hash function begins computing
     gettimeofday(&start, NULL);
 
-    ThreadArgs args;
+    ThreadArgs args; // Set up initial arguments for hashing
     args.num = 0;
     args.numThreads = numThreads;
     args.fd = fd;
@@ -67,14 +71,15 @@ main(int argc, char* argv[])
 
     pthread_t rootThread;
     void *resultHashPtr;
-    pthread_create(&rootThread, NULL, tree, (void*)&args);
+    pthread_create(&rootThread, NULL, tree, (void*)&args); // Hash the file
     pthread_join(rootThread, &resultHashPtr);
 
-    gettimeofday(&end, NULL);
+    gettimeofday(&end, NULL);//Stop counting time and print out how long it took to hash
     double elapsed = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
     printf("Time taken: %.6f seconds\n", elapsed);
 
     printf("File hash: %lu\n", *((u64*)resultHashPtr));
+    //cleanup and exit
     close(fd);
     free(resultHashPtr);
 
@@ -94,23 +99,23 @@ void *
 tree(void *arg)
 {
     ThreadArgs* args = (ThreadArgs*)arg;
-    u8 *consecutiveBlocks = mmap(NULL, args->len, PROT_READ, MAP_PRIVATE, args->fd, args->offset);
-    u64 hash = jenkins_one_at_a_time_hash(consecutiveBlocks, args->len);
+    u8 *consecutiveBlocks = mmap(NULL, args->len, PROT_READ, MAP_PRIVATE, args->fd, args->offset); // Read in consecutive blocks to work on using mmap
+    u64 hash = jenkins_one_at_a_time_hash(consecutiveBlocks, args->len); // Hash the data in the blocks
     u64 *resultHashPtr = (u64*)malloc(sizeof(u64));
 
-    u64 leftNum = args->num * 2 + 1;
-    u64 rightNum = args->num * 2 + 2;
+    u64 leftNum = args->num * 2 + 1; // Offsets for left hash
+    u64 rightNum = args->num * 2 + 2; // Offsets for right hash
     pthread_t leftThread, rightThread;
     void *leftHashPtr, *rightHashPtr;
-    ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, leftNum*args->len, args->len};
-    ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, rightNum*args->len, args->len};
+    ThreadArgs leftArgs = {leftNum, args->numThreads, args->fd, leftNum*args->len, args->len}; // Arguments for left hash
+    ThreadArgs rightArgs = {rightNum, args->numThreads, args->fd, rightNum*args->len, args->len}; // Arguments for right hash
     u8 concatBuffer[BUFFERSIZE];
 
     // 3 conditions...
     // 1) both left and right exist
     // 2) just left exists
     // 3) neither exist
-    if (rightNum < args->numThreads) {
+    if (rightNum < args->numThreads) { // Create both pthreads (left and right children) and exit pthread
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_create(&rightThread, NULL, tree, &rightArgs);
         pthread_join(leftThread, &leftHashPtr);
@@ -120,21 +125,21 @@ tree(void *arg)
         free(rightHashPtr);
         *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
-    } else if (leftNum < args->numThreads) {
+    } else if (leftNum < args->numThreads) { // Create a single pthread (left child) and exti pthread
         pthread_create(&leftThread, NULL, tree, &leftArgs);
         pthread_join(leftThread, &leftHashPtr);
         sprintf((char*)concatBuffer, "%lu%lu", hash, *((u64*)leftHashPtr));
         free(leftHashPtr);
         *resultHashPtr = jenkins_one_at_a_time_hash(concatBuffer, strlen((char*)concatBuffer));
         pthread_exit(resultHashPtr);
-    } else {
+    } else { // Create no child and exit pthread
         *resultHashPtr = hash;
         pthread_exit(resultHashPtr);
     }
 }
 
 u32
-jenkins_one_at_a_time_hash(const u8 *key, size_t length)
+jenkins_one_at_a_time_hash(const u8 *key, size_t length) // Jenkins hash function
 {
     size_t i = 0;
     u32 hash = 0;
